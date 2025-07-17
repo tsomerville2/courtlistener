@@ -2,6 +2,7 @@
 """
 FIXED Complete FreeLaw bulk data importer - ALL DATA TYPES
 Fixes the specific errors preventing opinions, citations, and people import
+Now with resume capability and progress UI!
 """
 
 import sys
@@ -9,6 +10,8 @@ import csv
 import bz2
 import tempfile
 import io
+import argparse
+import threading
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, List, Optional
@@ -18,6 +21,9 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from courtfinder.storage import CourtFinderStorage
 from courtfinder.models import Court, Docket, OpinionCluster, Opinion, Citation, Person, OpinionType
+from import_checkpoint import ImportCheckpoint
+from import_progress import ImportProgress
+from import_ui_asciimatics import ImportUI
 
 class FreeLawCSVParser:
     """Parser that handles the actual FreeLaw bulk CSV format"""
@@ -720,16 +726,50 @@ def parse_person_row(row: Dict[str, str]) -> Person:
     )
 
 def import_data_type(storage: CourtFinderStorage, file_path: Path, data_type: str, 
-                    parser_func, save_func, limit: Optional[int] = None) -> Dict[str, Any]:
-    """Import a specific data type from bz2 file"""
+                    parser_func, save_func, limit: Optional[int] = None,
+                    checkpoint: Optional[ImportCheckpoint] = None,
+                    progress: Optional[ImportProgress] = None,
+                    ui: Optional[ImportUI] = None) -> Dict[str, Any]:
+    """Import a specific data type from bz2 file with checkpoint and progress support"""
     
     print(f"📦 Processing {file_path.name} ({data_type})...")
     
     if not file_path.exists():
         return {'success': False, 'error': f'File not found: {file_path}'}
     
+    # Check for existing checkpoint
+    resume_from = 0
     imported_count = 0
     error_count = 0
+    last_id = None
+    
+    if checkpoint:
+        cp_data = checkpoint.load_checkpoint(data_type)
+        if cp_data:
+            resume_info = checkpoint.get_resume_info(data_type)
+            print(f"📍 {resume_info}")
+            resume_from = cp_data['row_number']
+            imported_count = cp_data['imported_count']
+            error_count = cp_data['error_count']
+            last_id = cp_data['last_processed_id']
+    
+    # Estimate total records (rough estimate based on file size)
+    file_size = file_path.stat().st_size
+    estimated_total = None
+    if data_type == "courts":
+        estimated_total = 2000
+    elif data_type == "dockets":
+        estimated_total = int(file_size / 1100)  # ~1.1KB per record
+    elif data_type == "opinions":
+        estimated_total = int(file_size / 2100)  # ~2.1KB per record
+    elif data_type == "citations":
+        estimated_total = int(file_size / 225)   # ~225 bytes per record
+    elif data_type == "people":
+        estimated_total = 10000
+    
+    # Start progress tracking
+    if progress:
+        progress.start_data_type(data_type, str(file_path), estimated_total, resume_from)
     
     try:
         with bz2.open(file_path, 'rt', encoding='utf-8') as f:
@@ -737,6 +777,10 @@ def import_data_type(storage: CourtFinderStorage, file_path: Path, data_type: st
             reader = csv.DictReader(f, quoting=csv.QUOTE_MINIMAL)
             
             for row_num, row in enumerate(reader, 1):
+                # Skip to resume point
+                if row_num < resume_from:
+                    continue
+                    
                 if limit and row_num > limit:
                     break
                 
@@ -752,14 +796,28 @@ def import_data_type(storage: CourtFinderStorage, file_path: Path, data_type: st
                     save_func(obj)
                     
                     imported_count += 1
+                    last_id = row.get('id', '')
                     
-                    if imported_count % 100 == 0:
+                    # Update progress
+                    if progress:
+                        progress.update_progress(data_type, row_num, imported_count, error_count, last_id)
+                    
+                    # Save checkpoint every 1000 records
+                    if checkpoint and imported_count % 1000 == 0:
+                        checkpoint.save_checkpoint(data_type, str(file_path), last_id, 
+                                                 row_num, imported_count, error_count)
+                    
+                    if imported_count % 100 == 0 and not ui:
                         print(f"  📊 Imported {imported_count} {data_type}...")
                     
                 except Exception as e:
                     error_count += 1
-                    if error_count <= 5:  # Only show first 5 errors
-                        print(f"  ❌ Error processing row {row_num}: {e}")
+                    error_msg = f"Error processing row {row_num}: {e}"
+                    
+                    if ui:
+                        ui.add_error(f"{data_type} - {error_msg}")
+                    elif error_count <= 5:  # Only show first 5 errors
+                        print(f"  ❌ {error_msg}")
                     continue
     
     except Exception as e:
@@ -769,6 +827,14 @@ def import_data_type(storage: CourtFinderStorage, file_path: Path, data_type: st
             'imported_count': imported_count,
             'error_count': error_count
         }
+    
+    # Mark as complete
+    if progress:
+        progress.finish_data_type(data_type)
+    
+    # Clear checkpoint on successful completion
+    if checkpoint and not limit:
+        checkpoint.clear_checkpoint(data_type)
     
     print(f"✅ Successfully imported {imported_count} {data_type} ({error_count} errors)")
     return {
@@ -859,8 +925,8 @@ def import_opinions_html_aware(storage: CourtFinderStorage, file_path: Path,
         'error_details': error_details
     }
 
-def main(use_limits=True):
-    """Import ALL FreeLaw data types - FIXED VERSION"""
+def main(use_limits=True, use_resume=False, use_ui=False):
+    """Import ALL FreeLaw data types - FIXED VERSION with resume and UI support"""
     
     print("🏛️  FREELAW BULK DATA IMPORTER - FIXED VERSION")
     print("=" * 70)
@@ -868,11 +934,27 @@ def main(use_limits=True):
         print("Processing bz2 files with REASONABLE LIMITS for fast import")
     else:
         print("Processing ALL bz2 files with NO LIMITS (will take hours)")
+    if use_resume:
+        print("📍 RESUME MODE: Will continue from last checkpoint")
+    if use_ui:
+        print("🖥️  UI MODE: Progress will be shown in interactive display")
     print("=" * 70)
     
     # Setup
     downloads_dir = Path("downloads")
     data_dir = Path("real_data")
+    
+    # Initialize checkpoint and progress systems
+    checkpoint = ImportCheckpoint() if use_resume else None
+    progress = ImportProgress() if (use_ui or use_resume) else None
+    ui = None
+    
+    # Start UI if requested
+    if use_ui:
+        ui = ImportUI(progress)
+        ui.start()
+        import time
+        time.sleep(1)  # Give UI time to start
     
     if not downloads_dir.exists():
         print("❌ No downloads/ directory found")
@@ -925,7 +1007,8 @@ def main(use_limits=True):
         print(f"\n📥 IMPORTING {data_type.upper()}")
         print("-" * 50)
         
-        result = import_data_type(storage, file_path, data_type, parser_func, save_func, limit)
+        result = import_data_type(storage, file_path, data_type, parser_func, save_func, limit,
+                                checkpoint=checkpoint, progress=progress, ui=ui)
         
         if result['success']:
             total_imported += result['imported_count']
@@ -961,22 +1044,45 @@ def main(use_limits=True):
     print(f"📈 Total imported: {total_imported} records")
     print(f"⚠️  Total errors: {total_errors} records")
     
+    # Stop UI if running
+    if ui:
+        ui.stop()
+    
     return True
 
 if __name__ == "__main__":
-    import sys
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Import FreeLaw bulk data with resume and UI support')
+    parser.add_argument('--no-limits', action='store_true', 
+                       help='Import all data without limits (will take hours)')
+    parser.add_argument('--resume', action='store_true',
+                       help='Resume from last checkpoint')
+    parser.add_argument('--ui', action='store_true',
+                       help='Show progress in interactive UI')
     
-    # Check for command line arguments
-    use_limits = True
-    if len(sys.argv) > 1 and sys.argv[1] == "--no-limits":
-        use_limits = False
+    args = parser.parse_args()
+    
+    # Show warnings
+    if args.no_limits:
         print("⚠️  WARNING: Running with NO LIMITS - this will take hours!")
     
-    success = main(use_limits=use_limits)
-    if success:
-        if use_limits:
-            print("\n🎉 LIMITED IMPORT COMPLETE - run with --no-limits for full dataset!")
+    try:
+        success = main(use_limits=not args.no_limits, 
+                      use_resume=args.resume,
+                      use_ui=args.ui)
+        
+        if success:
+            if not args.no_limits:
+                print("\n🎉 LIMITED IMPORT COMPLETE - run with --no-limits for full dataset!")
+            else:
+                print("\n🎉 ALL ISSUES FIXED - COMPLETE DATASET IMPORTED!")
         else:
-            print("\n🎉 ALL ISSUES FIXED - COMPLETE DATASET IMPORTED!")
-    else:
-        print("\n❌ Import failed!")
+            print("\n❌ Import failed!")
+    except KeyboardInterrupt:
+        print("\n⚠️  Import interrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ Import failed with error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

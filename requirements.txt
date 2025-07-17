@@ -3,10 +3,12 @@ pytest>=7.0.0
 behave>=1.2.6
 requests>=2.31.0
 pathlib2>=2.3.0; python_version < '3.4'
+psutil>=5.9.0
 
 # CLI interface dependencies
 rich>=13.0.0
 questionary>=1.10.0
+asciimatics>=1.14.0
 
 # Development dependencies
 pytest-cov>=4.0.0
