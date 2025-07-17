@@ -62,6 +62,21 @@ class FreeLawCSVParser:
         return FreeLawCSVParser.clean_value(value)
     
     @staticmethod
+    def parse_float(value: str) -> Optional[float]:
+        """Parse float value"""
+        if not value or value.strip() == '':
+            return None
+        
+        value = FreeLawCSVParser.clean_value(value).strip()
+        if not value:
+            return None
+        
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    
+    @staticmethod
     def parse_date(value: str) -> Optional[datetime]:
         """Parse FreeLaw date format: YYYY-MM-DD"""
         if not value or value.strip() == '':
@@ -584,6 +599,61 @@ def parse_citation_row(row: Dict[str, str]) -> Citation:
         parenthetical_text=parenthetical_text
     )
 
+def parse_court_row(row: Dict[str, str]) -> Court:
+    """Parse a court row from FreeLaw CSV"""
+    
+    # Extract required fields
+    court_id = FreeLawCSVParser.parse_string(row.get('id', ''))
+    full_name = FreeLawCSVParser.parse_string(row.get('full_name', ''))
+    short_name = FreeLawCSVParser.parse_string(row.get('short_name', ''))
+    jurisdiction = FreeLawCSVParser.parse_string(row.get('jurisdiction', ''))
+    position = FreeLawCSVParser.parse_float(row.get('position', ''))
+    citation_string = FreeLawCSVParser.parse_string(row.get('citation_string', ''))
+    
+    # Validate required fields
+    if not court_id:
+        raise ValueError("Court ID is required")
+    if not full_name:
+        raise ValueError("Court full name is required")
+    if not jurisdiction:
+        raise ValueError("Court jurisdiction is required")
+    
+    # Parse optional fields
+    start_date_str = FreeLawCSVParser.parse_string(row.get('start_date', ''))
+    end_date_str = FreeLawCSVParser.parse_string(row.get('end_date', ''))
+    notes = FreeLawCSVParser.parse_string(row.get('notes', ''))
+    
+    # Parse dates
+    start_date = None
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass  # Keep as None if parse fails
+    
+    end_date = None
+    if end_date_str:
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass  # Keep as None if parse fails
+    
+    # Default position if not provided
+    if position is None:
+        position = 0.0
+    
+    return Court(
+        id=court_id,
+        full_name=full_name,
+        short_name=short_name,
+        jurisdiction=jurisdiction,
+        position=position,
+        citation_string=citation_string,
+        start_date=start_date,
+        end_date=end_date,
+        notes=notes
+    )
+
 def parse_person_row(row: Dict[str, str]) -> Person:
     """Parse a person row from FreeLaw CSV"""
     
@@ -791,7 +861,7 @@ def main(use_limits=True):
     if use_limits:
         # REASONABLE LIMITS for fast import and testing
         imports = [
-            ("courts-2024-12-31.csv.bz2", "courts", None, None, None),  # Skip courts - already imported
+            ("courts-2024-12-31.csv.bz2", "courts", parse_court_row, storage.save_court, None),  # Import ALL courts (small file)
             ("dockets-2024-12-31.csv.bz2", "dockets", parse_docket_row, storage.save_docket, 5000),  # 5K dockets
             ("opinion-clusters-2024-12-31.csv.bz2", "opinion_clusters", parse_opinion_cluster_row, storage.save_opinion_cluster, 2000),  # 2K clusters
             ("citation-map-2025-07-02.csv.bz2", "citations", parse_citation_row, storage.save_citation, 10000),  # 10K citations
@@ -801,7 +871,7 @@ def main(use_limits=True):
     else:
         # NO LIMITS - import everything (will take hours)
         imports = [
-            ("courts-2024-12-31.csv.bz2", "courts", None, None, None),  # Skip courts - already imported
+            ("courts-2024-12-31.csv.bz2", "courts", parse_court_row, storage.save_court, None),  # Import ALL courts (small file)
             ("dockets-2024-12-31.csv.bz2", "dockets", parse_docket_row, storage.save_docket, None),  # ALL dockets
             ("opinion-clusters-2024-12-31.csv.bz2", "opinion_clusters", parse_opinion_cluster_row, storage.save_opinion_cluster, None),  # ALL clusters
             ("citation-map-2025-07-02.csv.bz2", "citations", parse_citation_row, storage.save_citation, None),  # ALL citations
