@@ -3,7 +3,7 @@
 Asciimatics UI for import progress visualization
 """
 
-from asciimatics.widgets import Frame, Layout, Label, Divider, Text, ProgressBar, TextBox
+from asciimatics.widgets import Frame, Layout, Label, Divider, Text, TextBox
 from asciimatics.scene import Scene
 from asciimatics.screen import Screen
 from asciimatics.exceptions import ResizeScreenError, StopApplication
@@ -42,9 +42,9 @@ class ImportProgressFrame(Frame):
         
         # Overall progress
         self._overall_label = Label("Overall Progress: Initializing...", align="<")
-        self._overall_progress = ProgressBar(max_value=100)
+        self._overall_progress_label = Label("[" + "░" * 50 + "] 0%", align="<")
         layout.add_widget(self._overall_label)
-        layout.add_widget(self._overall_progress)
+        layout.add_widget(self._overall_progress_label)
         layout.add_widget(Divider())
         
         # Individual data type progress bars
@@ -53,13 +53,13 @@ class ImportProgressFrame(Frame):
         
         for data_type in data_types:
             label = Label(f"{data_type.title()}: Waiting...", align="<")
-            progress = ProgressBar(max_value=100)
+            progress_label = Label("[" + "░" * 50 + "] 0%", align="<")
             self._data_type_widgets[data_type] = {
                 'label': label,
-                'progress': progress
+                'progress_label': progress_label
             }
             layout.add_widget(label)
-            layout.add_widget(progress)
+            layout.add_widget(progress_label)
         
         layout.add_widget(Divider())
         
@@ -82,6 +82,12 @@ class ImportProgressFrame(Frame):
         self._update_timer = None
         self._start_refresh()
     
+    def _make_progress_bar(self, percent: float, width: int = 50) -> str:
+        """Create a text-based progress bar"""
+        filled = int(width * percent / 100)
+        bar = "█" * filled + "░" * (width - filled)
+        return f"[{bar}] {percent:.1f}%"
+    
     def _start_refresh(self):
         """Start the refresh timer"""
         self._update_timer = threading.Timer(0.5, self._refresh_display)
@@ -96,7 +102,7 @@ class ImportProgressFrame(Frame):
             
             # Update overall progress
             self._overall_label.text = f"Overall Progress: {overall['overall_percent']:.1f}%"
-            self._overall_progress.value = int(overall['overall_percent'])
+            self._overall_progress_label.text = self._make_progress_bar(overall['overall_percent'])
             
             # Update individual data types
             for data_type, widgets in self._data_type_widgets.items():
@@ -107,18 +113,18 @@ class ImportProgressFrame(Frame):
                     
                     if stats['status'] == 'completed':
                         widgets['label'].text = f"{data_type.title()}: ✅ Complete - {stats['imported']:,} records"
-                        widgets['progress'].value = 100
+                        widgets['progress_label'].text = self._make_progress_bar(100)
                     elif stats['estimated_total']:
                         percent = (stats['processed'] / stats['estimated_total'] * 100)
                         widgets['label'].text = (f"{data_type.title()}: {stats['processed']:,}/{stats['estimated_total']:,} "
                                                f"({percent:.1f}%) @ {speed:.0f}/s")
-                        widgets['progress'].value = int(percent)
+                        widgets['progress_label'].text = self._make_progress_bar(percent)
                     else:
                         widgets['label'].text = f"{data_type.title()}: {stats['processed']:,} processed @ {speed:.0f}/s"
-                        widgets['progress'].value = 0
+                        widgets['progress_label'].text = self._make_progress_bar(0)
                 else:
                     widgets['label'].text = f"{data_type.title()}: Waiting..."
-                    widgets['progress'].value = 0
+                    widgets['progress_label'].text = self._make_progress_bar(0)
             
             # Update stats
             memory = overall['memory']

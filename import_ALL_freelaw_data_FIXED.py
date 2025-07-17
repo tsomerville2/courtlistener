@@ -23,7 +23,11 @@ from courtfinder.storage import CourtFinderStorage
 from courtfinder.models import Court, Docket, OpinionCluster, Opinion, Citation, Person, OpinionType
 from import_checkpoint import ImportCheckpoint
 from import_progress import ImportProgress
-from import_ui_asciimatics import ImportUI
+try:
+    from import_ui_asciimatics import ImportUI
+except ImportError:
+    ImportUI = None
+from import_ui_rich import ImportUIRich
 
 class FreeLawCSVParser:
     """Parser that handles the actual FreeLaw bulk CSV format"""
@@ -951,7 +955,8 @@ def main(use_limits=True, use_resume=False, use_ui=False):
     
     # Start UI if requested
     if use_ui:
-        ui = ImportUI(progress)
+        # Use Rich UI which is more compatible
+        ui = ImportUIRich(progress)
         ui.start()
         import time
         time.sleep(1)  # Give UI time to start
