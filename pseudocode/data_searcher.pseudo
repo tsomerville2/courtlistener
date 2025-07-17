@@ -1,0 +1,21 @@
+PROGRAM DataSearcher
+BEGIN
+    FUNCTION SearchData()
+    BEGIN
+        query = GetUserInput("Enter search term: ")
+        
+        records = ReadFile("data/parsed.json")
+        results = []
+        
+        FOR each record in records DO
+            IF Contains(record, query) THEN
+                results.Add(record)
+            END IF
+        END FOR
+        
+        DISPLAY "Found " + results.Length + " matches"
+        FOR each result in results DO
+            DISPLAY result
+        END FOR
+    END
+END

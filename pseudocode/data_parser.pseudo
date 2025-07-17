@@ -1,0 +1,31 @@
+PROGRAM DataParser
+BEGIN
+    FUNCTION ParseData()
+    BEGIN
+        DISPLAY "Parsing data..."
+        
+        lines = ReadFile("data/court_data.txt")
+        records = []
+        
+        FOR each line in lines DO
+            columns = Split(line, "\t")
+            
+            // Fix columns 12-18 by cleaning bad characters
+            FOR col = 12 TO 18 DO
+                columns[col] = CleanText(columns[col])
+            END FOR
+            
+            records.Add(columns)
+        END FOR
+        
+        WriteFile("data/parsed.json", records)
+        DISPLAY "Parsing complete"
+    END
+    
+    FUNCTION CleanText(text)
+    BEGIN
+        text = RemoveNullBytes(text)
+        text = TrimWhitespace(text)
+        RETURN text
+    END
+END

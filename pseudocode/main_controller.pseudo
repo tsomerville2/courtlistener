@@ -1,0 +1,19 @@
+PROGRAM MainController
+BEGIN
+    WHILE TRUE DO
+        DISPLAY "Commands: download, parse, lookup, quit"
+        command = GetUserInput()
+        
+        IF command = "download" THEN
+            DownloadData()
+        ELSE IF command = "parse" THEN
+            ParseData()
+        ELSE IF command = "lookup" THEN
+            SearchData()
+        ELSE IF command = "quit" THEN
+            BREAK
+        ELSE
+            DISPLAY "Unknown command"
+        END IF
+    END WHILE
+END

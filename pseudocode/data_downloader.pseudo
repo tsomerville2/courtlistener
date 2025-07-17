@@ -1,0 +1,13 @@
+PROGRAM DataDownloader
+BEGIN
+    FUNCTION DownloadData()
+    BEGIN
+        url = "https://freelaw.org/bulk-data/sample.zip"
+        DISPLAY "Downloading..."
+        
+        HTTPDownload(url, "data/sample.zip")
+        UnzipFile("data/sample.zip", "data/")
+        
+        DISPLAY "Download complete"
+    END
+END
