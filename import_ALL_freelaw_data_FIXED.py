@@ -660,6 +660,10 @@ def parse_person_row(row: Dict[str, str]) -> Person:
     # Extract and clean the required fields
     person_id = FreeLawCSVParser.parse_integer(row.get('id', ''))
     
+    # Validate required fields
+    if not person_id:
+        raise ValueError("Person ID is required")
+    
     # Parse date fields
     date_created = FreeLawCSVParser.parse_datetime(row.get('date_created', ''))
     date_modified = FreeLawCSVParser.parse_datetime(row.get('date_modified', ''))
@@ -671,12 +675,24 @@ def parse_person_row(row: Dict[str, str]) -> Person:
     name_middle = FreeLawCSVParser.parse_string(row.get('name_middle', ''))
     name_last = FreeLawCSVParser.parse_string(row.get('name_last', ''))
     name_suffix = FreeLawCSVParser.parse_string(row.get('name_suffix', ''))
-    gender = FreeLawCSVParser.parse_string(row.get('gender', ''))
     
-    # Parse optional fields
-    ftm_total_received = FreeLawCSVParser.parse_integer(row.get('ftm_total_received', ''))
+    # Parse location fields
+    dob_city = FreeLawCSVParser.parse_string(row.get('dob_city', ''))
+    dob_state = FreeLawCSVParser.parse_string(row.get('dob_state', ''))
+    dod_city = FreeLawCSVParser.parse_string(row.get('dod_city', ''))
+    dod_state = FreeLawCSVParser.parse_string(row.get('dod_state', ''))
+    
+    # Parse granularity fields
+    date_granularity_dob = FreeLawCSVParser.parse_string(row.get('date_granularity_dob', ''))
+    date_granularity_dod = FreeLawCSVParser.parse_string(row.get('date_granularity_dod', ''))
+    
+    # Parse other fields
+    gender = FreeLawCSVParser.parse_string(row.get('gender', ''))
+    religion = FreeLawCSVParser.parse_string(row.get('religion', ''))
+    ftm_total_received = FreeLawCSVParser.parse_float(row.get('ftm_total_received', ''))
     ftm_eid = FreeLawCSVParser.parse_string(row.get('ftm_eid', ''))
     has_photo = FreeLawCSVParser.parse_boolean(row.get('has_photo', ''))
+    is_alias_of = FreeLawCSVParser.parse_integer(row.get('is_alias_of_id', ''))
     
     # Create Person object
     return Person(
@@ -688,11 +704,19 @@ def parse_person_row(row: Dict[str, str]) -> Person:
         name_last=name_last,
         name_suffix=name_suffix,
         date_dob=date_dob,
+        date_granularity_dob=date_granularity_dob,
         date_dod=date_dod,
+        date_granularity_dod=date_granularity_dod,
+        dob_city=dob_city,
+        dob_state=dob_state,
+        dod_city=dod_city,
+        dod_state=dod_state,
         gender=gender,
+        religion=religion,
         ftm_total_received=ftm_total_received,
         ftm_eid=ftm_eid,
-        has_photo=has_photo
+        has_photo=has_photo,
+        is_alias_of=is_alias_of
     )
 
 def import_data_type(storage: CourtFinderStorage, file_path: Path, data_type: str, 
@@ -865,7 +889,7 @@ def main(use_limits=True):
             ("dockets-2024-12-31.csv.bz2", "dockets", parse_docket_row, storage.save_docket, 5000),  # 5K dockets
             ("opinion-clusters-2024-12-31.csv.bz2", "opinion_clusters", parse_opinion_cluster_row, storage.save_opinion_cluster, 2000),  # 2K clusters
             ("citation-map-2025-07-02.csv.bz2", "citations", parse_citation_row, storage.save_citation, 10000),  # 10K citations
-            # Skip people - file is corrupted (306 bytes)
+            ("people-db-people-2024-12-31.csv.bz2", "people", parse_person_row, storage.save_person, 1000),  # 1K people
         ]
         opinion_limit = 1000  # 1K opinions
     else:
@@ -875,7 +899,7 @@ def main(use_limits=True):
             ("dockets-2024-12-31.csv.bz2", "dockets", parse_docket_row, storage.save_docket, None),  # ALL dockets
             ("opinion-clusters-2024-12-31.csv.bz2", "opinion_clusters", parse_opinion_cluster_row, storage.save_opinion_cluster, None),  # ALL clusters
             ("citation-map-2025-07-02.csv.bz2", "citations", parse_citation_row, storage.save_citation, None),  # ALL citations
-            # Skip people - file is corrupted (306 bytes)
+            ("people-db-people-2024-12-31.csv.bz2", "people", parse_person_row, storage.save_person, None),  # ALL people
         ]
         opinion_limit = None  # ALL opinions
     
