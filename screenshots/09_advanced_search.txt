@@ -1,0 +1,35 @@
+🔍 Advanced Search Examples
+==================================================
+
+1. Case Details Lookup:
+   Input: Docket ID 12345
+   Output:
+   ✓ Case details for docket 12345:
+   Case: Brown v. Board of Education
+   Docket Number: 1-52
+   Court ID: 1
+   Date Filed: 1952-12-09
+   Opinion Clusters: 2
+
+2. Citation Network Exploration:
+   Input: Opinion ID 67890, Depth 2
+   Output:
+   ✓ Citation network for opinion 67890:
+   Nodes: 25
+   Edges: 43
+   Connected Opinions:
+     • Opinion 67891: Lead opinion (depth: 1)
+     • Opinion 67892: Concurring opinion (depth: 1)
+     • Opinion 67893: Dissenting opinion (depth: 2)
+
+3. Judge Search:
+   Input: 'Warren'
+   Output:
+   ✓ Found 3 judges:
+┏━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ ID       ┃ Full Name                 ┃ Birth Date   ┃ Gender   ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━┩
+│ 1001     │ Earl Warren               │ 1891-03-19   │ Male     │
+│ 1002     │ Warren E. Burger          │ 1907-09-17   │ Male     │
+│ 1003     │ Elizabeth Warren          │ 1949-06-22   │ Female   │
+└──────────┴───────────────────────────┴──────────────┴──────────┘

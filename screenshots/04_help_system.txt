@@ -1,0 +1,40 @@
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ ❓ CourtFinder CLI Help                                                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+🚀 Quick Start
+  The fastest way to get started with CourtFinder.
+  • Sets up sample data if needed
+  • Demonstrates search capabilities
+  • Perfect for first-time users
+
+📥 Download Court Data
+  Download bulk data from CourtListener.com
+  • Supports courts, dockets, opinions, etc.
+  • Automatically extracts compressed files
+  • Requires internet connection
+
+🔧 Parse Downloaded Data
+  Convert CSV files to searchable format
+  • Validates CSV structure
+  • Imports data into local storage
+  • Creates indexes for fast searching
+
+🔍 Search Court Records
+  Search across all imported data
+  • Courts: Search by name or jurisdiction
+  • Cases: Search by case name
+  • Opinions: Full-text search
+  • Judges: Search by name
+  • Case Details: Complete case information
+  • Citation Network: Explore relationships
+
+📊 Statistics
+  View system and storage statistics
+  • Storage usage by data type
+  • Record counts
+  • Index information
+
+Data Source: Test Data
+Version: CourtFinder CLI 1.0
+Repository: https://github.com/courtfinder

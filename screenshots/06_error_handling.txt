@@ -1,0 +1,18 @@
+Error Handling Examples
+========================================
+
+1. Invalid court search:
+   Input: (empty search)
+   Output: No results found
+
+2. Invalid docket ID:
+   Input: 'not-a-number'
+   Output: Invalid docket ID. Please enter a number.
+
+3. Missing data file:
+   Input: Non-existent CSV file
+   Output: No download directory found. Please download data first.
+
+4. Network error during download:
+   Output: Download failed: Connection timeout
+   Suggestion: Check internet connection and try again
