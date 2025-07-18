@@ -6,6 +6,8 @@ Run this script to download real bz2 files from CourtListener S3 bucket
 
 import subprocess
 import os
+import sys
+import argparse
 from pathlib import Path
 
 def download_file(url, filename):
@@ -41,21 +43,74 @@ def download_file(url, filename):
         return False
 
 def main():
+    parser = argparse.ArgumentParser(description='Download CourtListener bulk data files')
+    parser.add_argument('--complete', action='store_true', 
+                       help='Download complete dataset (~300GB) instead of essential files (~5.5GB)')
+    args = parser.parse_args()
+    
     print("🏛️  CourtListener Bulk Data Downloader")
     print("=" * 50)
     
     base_url = "https://com-courtlistener-storage.s3-us-west-2.amazonaws.com/bulk-data"
     date = "2024-12-31"  # Latest available date
     
-    # Files to download with descriptions
-    files = [
-        (f"courts-{date}.csv.bz2", "Court metadata (~79KB)"),
-        (f"people-{date}.csv.bz2", "Judge information (~1-5MB)"),
-        (f"opinion-clusters-{date}.csv.bz2", "Opinion metadata (~100-500MB)"),
-        (f"opinions-{date}.csv.bz2", "Full opinion text (~1-2GB)"),
-        (f"citations-{date}.csv.bz2", "Citation data (~1-2GB)"),
-        (f"dockets-{date}.csv.bz2", "Case dockets (~4GB)"),
-    ]
+    if args.complete:
+        print("📥 COMPLETE DATASET MODE: Downloading ALL FreeLaw bulk data (~300GB)")
+        print("⚠️  This will download hundreds of files and may take many hours")
+        print()
+        
+        # Complete dataset includes all available files
+        files = [
+            # Essential files (always included)
+            (f"courts-{date}.csv.bz2", "Court metadata (~79KB)"),
+            (f"people-{date}.csv.bz2", "Judge information (~1-5MB)"),
+            (f"opinion-clusters-{date}.csv.bz2", "Opinion metadata (~100-500MB)"),
+            (f"opinions-{date}.csv.bz2", "Full opinion text (~1-2GB)"),
+            (f"citations-{date}.csv.bz2", "Citation data (~1-2GB)"),
+            (f"dockets-{date}.csv.bz2", "Case dockets (~4GB)"),
+            
+            # Additional comprehensive data files
+            (f"audio-{date}.csv.bz2", "Audio files metadata (~10-50MB)"),
+            (f"judges-{date}.csv.bz2", "Judge detailed information (~50-100MB)"),
+            (f"positions-{date}.csv.bz2", "Judge positions (~20-50MB)"),
+            (f"schools-{date}.csv.bz2", "School information (~1-5MB)"),
+            (f"political-affiliations-{date}.csv.bz2", "Political data (~1-10MB)"),
+            (f"aba-ratings-{date}.csv.bz2", "ABA ratings (~1-5MB)"),
+            (f"education-{date}.csv.bz2", "Education data (~1-10MB)"),
+            (f"financial-disclosures-{date}.csv.bz2", "Financial disclosures (~50-200MB)"),
+            (f"investments-{date}.csv.bz2", "Investment data (~20-100MB)"),
+            (f"non-investment-income-{date}.csv.bz2", "Non-investment income (~10-50MB)"),
+            (f"positions-{date}.csv.bz2", "Position data (~10-50MB)"),
+            (f"gifts-{date}.csv.bz2", "Gift data (~5-20MB)"),
+            (f"reimbursements-{date}.csv.bz2", "Reimbursement data (~5-20MB)"),
+            (f"debts-{date}.csv.bz2", "Debt data (~5-20MB)"),
+            (f"sources-{date}.csv.bz2", "Source data (~5-20MB)"),
+            (f"recap-documents-{date}.csv.bz2", "RECAP documents (~50-200GB)"),
+            (f"docket-entries-{date}.csv.bz2", "Docket entries (~20-50GB)"),
+            (f"parties-{date}.csv.bz2", "Party data (~10-30GB)"),
+            (f"attorneys-{date}.csv.bz2", "Attorney data (~5-20GB)"),
+            (f"attorney-organizations-{date}.csv.bz2", "Attorney organizations (~1-5GB)"),
+            (f"originating-court-information-{date}.csv.bz2", "Originating court info (~1-5GB)"),
+            (f"bankruptcy-information-{date}.csv.bz2", "Bankruptcy info (~1-5GB)"),
+            (f"criminal-complaints-{date}.csv.bz2", "Criminal complaints (~1-5GB)"),
+            (f"criminal-counts-{date}.csv.bz2", "Criminal counts (~1-5GB)"),
+            (f"tags-{date}.csv.bz2", "Tag data (~1-5GB)"),
+        ]
+        
+    else:
+        print("📥 ESSENTIAL FILES MODE: Downloading core dataset (~5.5GB)")
+        print("💡 Use --complete flag for full 300GB dataset")
+        print()
+        
+        # Essential files only
+        files = [
+            (f"courts-{date}.csv.bz2", "Court metadata (~79KB)"),
+            (f"people-{date}.csv.bz2", "Judge information (~1-5MB)"),
+            (f"opinion-clusters-{date}.csv.bz2", "Opinion metadata (~100-500MB)"),
+            (f"opinions-{date}.csv.bz2", "Full opinion text (~1-2GB)"),
+            (f"citations-{date}.csv.bz2", "Citation data (~1-2GB)"),
+            (f"dockets-{date}.csv.bz2", "Case dockets (~4GB)"),
+        ]
     
     downloads_dir = Path("downloads")
     downloads_dir.mkdir(exist_ok=True)

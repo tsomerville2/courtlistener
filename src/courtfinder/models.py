@@ -61,8 +61,7 @@ class Court:
             raise ValueError("Court ID is required")
         if not self.full_name:
             raise ValueError("Court full name is required")
-        if not self.jurisdiction:
-            raise ValueError("Court jurisdiction is required")
+        # Note: jurisdiction can be empty for some courts (e.g., federal agencies)
     
     def is_active(self) -> bool:
         """Check if court is currently active"""

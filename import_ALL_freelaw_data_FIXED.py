@@ -625,8 +625,10 @@ def parse_court_row(row: Dict[str, str]) -> Court:
         raise ValueError("Court ID is required")
     if not full_name:
         raise ValueError("Court full name is required")
+    
+    # Use empty string if jurisdiction is missing (some courts don't have jurisdiction data)
     if not jurisdiction:
-        raise ValueError("Court jurisdiction is required")
+        jurisdiction = ""
     
     # Parse optional fields
     start_date_str = FreeLawCSVParser.parse_string(row.get('start_date', ''))
@@ -801,6 +803,10 @@ def import_data_type(storage: CourtFinderStorage, file_path: Path, data_type: st
                     
                     imported_count += 1
                     last_id = row.get('id', '')
+                    
+                    # Track success in UI
+                    if ui:
+                        ui.add_success()
                     
                     # Update progress
                     if progress:

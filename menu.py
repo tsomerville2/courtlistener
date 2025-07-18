@@ -142,17 +142,62 @@ class CourtFinderMenu:
         self.console.print(panel)
         self.console.print()
     
+    def _build_menu_items(self):
+        """Build contextual menu items based on current state"""
+        # Check system state
+        downloads_dir = Path("downloads")
+        real_data_dir = Path("real_data")
+        
+        # Check what's downloaded
+        bz2_files = list(downloads_dir.glob("*.bz2")) if downloads_dir.exists() else []
+        has_downloads = len(bz2_files) > 0
+        
+        # Check what's parsed
+        has_parsed_data = real_data_dir.exists() and self.using_real_data
+        
+        # Check if there's searchable data
+        has_searchable_data = has_parsed_data
+        
+        # Build contextual menu
+        menu_items = []
+        
+        # Always show data status first
+        menu_items.append(("1", "📊", "View Data Status", "See what data you have and what's available", "bright_cyan"))
+        
+        # Download options
+        if not has_downloads:
+            menu_items.append(("2", "📥", "Download Court Data", "Download ~30GB real FreeLaw bulk data", "bright_blue"))
+        else:
+            total_size = sum(f.stat().st_size for f in bz2_files)
+            menu_items.append(("2", "📥", "Manage Downloads", f"You have {len(bz2_files)} files ({total_size/1024/1024:.1f}MB) - download more?", "bright_blue"))
+        
+        # Parse options
+        if has_downloads and not has_parsed_data:
+            menu_items.append(("3", "🔧", "Parse Downloaded Data", "⭐ NEXT STEP: Process your downloads with progress UI", "bright_yellow"))
+        elif has_downloads and has_parsed_data:
+            menu_items.append(("3", "🔧", "Re-parse Data", "✅ Already parsed - reprocess with different options?", "dim"))
+        elif not has_downloads:
+            menu_items.append(("3", "🔧", "Parse Data", "❌ No downloads found - download data first", "dim"))
+        
+        # Search options
+        if has_searchable_data:
+            menu_items.append(("4", "🔍", "Search Court Records", "✅ Search your parsed data", "bright_magenta"))
+        else:
+            menu_items.append(("4", "🔍", "Search Records", "❌ No searchable data - parse data first", "dim"))
+        
+        # Quick start for new users
+        if not has_downloads and not has_parsed_data:
+            menu_items.append(("5", "🚀", "Quick Start", "⭐ NEW USER: Download sample → Parse → Search", "bright_green"))
+        
+        # Always available
+        menu_items.append(("6", "❓", "Help", "Show detailed help information", "bright_white"))
+        menu_items.append(("7", "🚪", "Exit", "Exit CourtFinder CLI", "bright_red"))
+        
+        return menu_items
+    
     def show_menu(self):
-        """Display main menu options"""
-        menu_items = [
-            ("1", "🚀", "Quick Start", "Download sample → Parse → Search", "bright_green"),
-            ("2", "📥", "Download Court Data", "Download ~5.5GB real FreeLaw bulk data", "bright_blue"),
-            ("3", "🔧", "Parse Downloaded Data", "Process bz2 files into searchable format", "bright_yellow"),
-            ("4", "🔍", "Search Court Records", "Search courts, cases, opinions, judges", "bright_magenta"),
-            ("5", "📊", "View Statistics", "Show storage and system statistics", "bright_cyan"),
-            ("6", "❓", "Help", "Show detailed help information", "bright_white"),
-            ("7", "🚪", "Exit", "Exit CourtFinder CLI", "bright_red")
-        ]
+        """Display contextual menu options based on current state"""
+        menu_items = self._build_menu_items()
         
         table = Table(show_header=False, box=None, padding=(0, 1))
         table.add_column("", width=3)
@@ -306,7 +351,7 @@ class CourtFinderMenu:
         """Download bulk data from CourtListener using working standalone script"""
         self.console.print(Panel(
             "[bright_blue bold]📥 Download Court Data[/bright_blue bold]\n" +
-            "[dim]Downloads ~5.5GB of real FreeLaw bulk data from CourtListener[/dim]",
+            "[dim]Downloads real FreeLaw bulk data from CourtListener with progress bars[/dim]",
             border_style="bright_blue"
         ))
         
@@ -317,47 +362,26 @@ class CourtFinderMenu:
             if bz2_files:
                 total_size = sum(f.stat().st_size for f in bz2_files)
                 self.console.print(f"[yellow]⚠️  Downloads directory already contains {len(bz2_files)} files ({total_size/1024/1024:.1f} MB)[/yellow]")
-                
-                if not Confirm.ask("Do you want to continue downloading (may skip existing files)?"):
-                    return
+                self.console.print(f"[bright_green]✨ The new UI will show existing files and let you skip them[/bright_green]")
         
         # Show what will be downloaded
-        self.console.print("[bright_yellow]This will download the following FreeLaw bulk data:[/bright_yellow]")
-        files_info = [
-            ("courts-2024-12-31.csv.bz2", "Court metadata (~79KB)"),
-            ("people-2024-12-31.csv.bz2", "Judge information (~1-5MB)"),
-            ("opinion-clusters-2024-12-31.csv.bz2", "Opinion metadata (~100-500MB)"),
-            ("opinions-2024-12-31.csv.bz2", "Full opinion text (~1-2GB)"),
-            ("citations-2024-12-31.csv.bz2", "Citation data (~1-2GB)"),
-            ("dockets-2024-12-31.csv.bz2", "Case dockets (~4GB)"),
-        ]
-        
-        table = Table(show_header=True, header_style="bold bright_blue")
-        table.add_column("File", width=30)
-        table.add_column("Description", width=35)
-        
-        for filename, desc in files_info:
-            table.add_row(filename, desc)
-        
-        self.console.print(table)
-        self.console.print(f"\n[bright_red]⚠️  Total download size: ~5.5GB[/bright_red]")
-        
-        if not Confirm.ask("Do you want to proceed with the download?"):
-            return
+        self.console.print(f"\n[bright_yellow]Essential Files (~40GB compressed):[/bright_yellow]")
+        self.console.print(f"[dim]courts, people, opinions, citations, dockets, opinion-clusters[/dim]")
+        self.console.print(f"[bright_blue]🚀 Launching beautiful asciimatics download UI...[/bright_blue]")
+        self.console.print(f"[bright_green]✨ Features: Real-time progress, smart file detection, keyboard shortcuts[/bright_green]")
         
         try:
             import subprocess
+            import time
             
-            self.console.print(f"\n[bright_blue]🚀 Starting download using download_bulk_data.py...[/bright_blue]")
+            self.console.print(f"\n[dim]Opening interactive progress window in 2 seconds...[/dim]")
+            time.sleep(2)
             
-            # Run the working download script
-            with Status("[bright_blue]Running download script...[/bright_blue]", console=self.console):
-                result = subprocess.run(
-                    [sys.executable, "download_bulk_data.py"],
-                    capture_output=True,
-                    text=True,
-                    cwd=Path.cwd()
-                )
+            # Use the new improved download script with asciimatics UI
+            cmd = [sys.executable, "download_with_progress_v2.py"]
+            
+            # Run the download script with progress UI (no capture_output so UI shows)
+            result = subprocess.run(cmd, cwd=Path.cwd())
             
             if result.returncode == 0:
                 self.console.print(f"[green]✓ Download completed successfully![/green]")
@@ -391,10 +415,10 @@ class CourtFinderMenu:
             self.console.print(f"[red]Error running download script: {e}[/red]")
     
     def parse_data(self):
-        """Parse downloaded bulk data using working standalone script"""
+        """Parse downloaded bulk data with UI and flexible options"""
         self.console.print(Panel(
             "[bright_yellow bold]🔧 Parse Downloaded Data[/bright_yellow bold]\n" +
-            "[dim]Processes bz2 files from downloads/ and creates searchable real_data/[/dim]",
+            "[dim]Interactive import with progress visualization and flexible data limits[/dim]",
             border_style="bright_yellow"
         ))
         
@@ -454,14 +478,40 @@ class CourtFinderMenu:
             if not Confirm.ask("Do you want to continue (may overwrite existing data)?"):
                 return
         
-        # Show what will be imported
+        # Ask user about import scope
+        self.console.print(f"\n[bright_yellow]Import Options:[/bright_yellow]")
+        
+        import_choice = questionary.select(
+            "Choose processing scope:",
+            choices=[
+                "Limited Processing - Fast sample (1000 courts, 5000 dockets, 2000 clusters, 1000 opinions) - Your original working approach",
+                "Full Processing - Complete dataset (All records) - Expands to ~300GB, may take hours",
+                "Cancel"
+            ]
+        ).ask()
+        
+        if not import_choice or import_choice == "Cancel":
+            return
+        
+        use_full_processing = "Full Processing" in import_choice
+        
+        if use_full_processing:
+            self.console.print(f"[bright_red]⚠️  WARNING: Full processing will expand to ~300GB![/bright_red]")
+            self.console.print(f"[bright_red]   This processes ALL records and may take several hours[/bright_red]")
+            if not Confirm.ask("Are you sure you want to proceed with full processing?"):
+                return
+            
+            scope_text = "ALL records (expands to ~300GB)"
+        else:
+            scope_text = "limited samples (your original working approach)"
+        
         self.console.print(f"\n[bright_yellow]This will:[/bright_yellow]")
-        self.console.print(f"  • Decompress and parse all .bz2 files")
+        self.console.print(f"  • Process compressed .bz2 files with progress UI")
         self.console.print(f"  • Import court records into real_data/ directory")
         self.console.print(f"  • Create searchable database of courts, cases, and opinions")
-        self.console.print(f"  • Process with reasonable limits (1000 courts, 1000 dockets, 500 clusters)")
+        self.console.print(f"  • Process {scope_text}")
         
-        if not Confirm.ask("Do you want to proceed with parsing?"):
+        if not Confirm.ask("Do you want to proceed with processing?"):
             return
         
         try:
@@ -470,30 +520,22 @@ class CourtFinderMenu:
             self.console.print(f"\n[bright_blue]🚀 Starting import using import_ALL_freelaw_data_FIXED.py...[/bright_blue]")
             self.console.print(f"[dim]This may take several minutes depending on data size...[/dim]")
             
-            # Run the complete import script
-            with Status("[bright_blue]Running complete import script...[/bright_blue]", console=self.console):
-                result = subprocess.run(
-                    [sys.executable, "import_ALL_freelaw_data_FIXED.py"],
-                    capture_output=True,
-                    text=True,
-                    cwd=Path.cwd()
-                )
+            # Run the complete import script with UI
+            self.console.print("[bright_blue]Starting import with interactive progress display...[/bright_blue]")
+            
+            # Build command with appropriate flags
+            cmd = [sys.executable, "import_ALL_freelaw_data_FIXED.py", "--ui"]
+            if use_full_processing:
+                cmd.append("--no-limits")
+            
+            result = subprocess.run(cmd, cwd=Path.cwd())
             
             if result.returncode == 0:
-                self.console.print(f"[green]✓ Import completed successfully![/green]")
-                
-                # Show the output from the script
-                if result.stdout:
-                    self.console.print("\n[bright_white]Import summary:[/bright_white]")
-                    # Show relevant lines from output
-                    lines = result.stdout.strip().split('\n')
-                    for line in lines:
-                        if any(keyword in line for keyword in ['Successfully imported', 'FINAL STATISTICS', 'items', 'SUCCESS', 'READY']):
-                            self.console.print(f"  {line}")
+                self.console.print(f"\n[green]✓ Import completed successfully![/green]")
                 
                 # Check what was created
                 if real_data_dir.exists():
-                    self.console.print(f"\n[green]📁 real_data/ directory created with processed court data[/green]")
+                    self.console.print(f"[green]📁 real_data/ directory created with processed court data[/green]")
                     self.console.print(f"[bright_yellow]💡 Next step: Use 'Search Court Records' to explore the data[/bright_yellow]")
                     
                     # Force menu to reinitialize with real data
@@ -502,10 +544,6 @@ class CourtFinderMenu:
                     
             else:
                 self.console.print(f"[red]❌ Import failed with exit code {result.returncode}[/red]")
-                if result.stderr:
-                    self.console.print(f"[red]Error: {result.stderr}[/red]")
-                if result.stdout:
-                    self.console.print(f"[dim]Output: {result.stdout}[/dim]")
                     
         except KeyboardInterrupt:
             self.console.print("\n[yellow]Import cancelled by user.[/yellow]")
@@ -786,6 +824,87 @@ class CourtFinderMenu:
         else:
             self.console.print(f"[yellow]No citation network found for opinion {opinion_id}[/yellow]")
     
+    def view_data_status(self):
+        """Display comprehensive data status and workflow guide"""
+        self.console.print(Panel(
+            "[bright_cyan bold]📊 Data Status & Next Steps[/bright_cyan bold]",
+            border_style="bright_cyan"
+        ))
+        
+        # Check all data states
+        downloads_dir = Path("downloads")
+        real_data_dir = Path("real_data")
+        test_data_dir = Path("test_data")
+        
+        # Downloads status
+        self.console.print("\n[bright_white]📥 Downloaded Data:[/bright_white]")
+        if downloads_dir.exists():
+            bz2_files = list(downloads_dir.glob("*.bz2"))
+            if bz2_files:
+                total_size = sum(f.stat().st_size for f in bz2_files)
+                self.console.print(f"  ✅ {len(bz2_files)} files ({total_size/1024/1024:.1f}MB)")
+                
+                # Show breakdown
+                for file_path in bz2_files:
+                    size_str = self._format_size(file_path.stat().st_size)
+                    self.console.print(f"     • {file_path.name} ({size_str})")
+            else:
+                self.console.print("  ❌ No .bz2 files found")
+        else:
+            self.console.print("  ❌ No downloads/ directory")
+        
+        # Parsed data status
+        self.console.print("\n[bright_white]🔧 Parsed Data:[/bright_white]")
+        if real_data_dir.exists() and self.using_real_data:
+            try:
+                stats = self.courtfinder_cli.get_stats()
+                storage_stats = stats['storage_stats']
+                self.console.print("  ✅ Real data available and ready to search")
+                
+                # Show record counts
+                for data_type, type_stats in storage_stats.items():
+                    if data_type != 'total_disk_usage' and type_stats['total_items'] > 0:
+                        self.console.print(f"     • {data_type.replace('_', ' ').title()}: {type_stats['total_items']:,} records")
+                        
+                total_size = storage_stats['total_disk_usage']
+                self.console.print(f"  💾 Total size: {self._format_size(total_size)}")
+            except Exception as e:
+                self.console.print(f"  ⚠️ Real data directory exists but error reading: {e}")
+        elif test_data_dir.exists():
+            self.console.print("  ⚠️ Using test data (sample records)")
+        else:
+            self.console.print("  ❌ No parsed data - need to run import")
+        
+        # Show workflow status
+        self.console.print("\n[bright_white]🔄 Workflow Status:[/bright_white]")
+        
+        has_downloads = downloads_dir.exists() and len(list(downloads_dir.glob("*.bz2"))) > 0
+        has_parsed = real_data_dir.exists() and self.using_real_data
+        
+        if not has_downloads and not has_parsed:
+            self.console.print("  📍 Status: [bright_red]Getting Started[/bright_red]")
+            self.console.print("  ⭐ Next: Download data or try Quick Start")
+        elif has_downloads and not has_parsed:
+            self.console.print("  📍 Status: [bright_yellow]Ready to Parse[/bright_yellow]")
+            self.console.print("  ⭐ Next: Parse your downloaded data")
+        elif has_parsed:
+            self.console.print("  📍 Status: [bright_green]Ready to Search[/bright_green]")
+            self.console.print("  ⭐ Next: Search your data or download more")
+        
+        # Available actions
+        self.console.print(f"\n[bright_white]💡 Available Actions:[/bright_white]")
+        if not has_downloads:
+            self.console.print("  • Download real FreeLaw data (~5.5GB)")
+            self.console.print("  • Try Quick Start for demo")
+        if has_downloads and not has_parsed:
+            self.console.print("  • Parse your downloads (with progress UI)")
+        if has_downloads and has_parsed:
+            self.console.print("  • Re-parse with different options")
+        if has_parsed:
+            self.console.print("  • Search courts, cases, opinions, judges")
+        if has_downloads:
+            self.console.print("  • Download additional data files")
+
     def view_statistics(self):
         """Display system statistics"""
         self.console.print(Panel(
@@ -874,10 +993,11 @@ class CourtFinderMenu:
             {
                 "title": "🔧 Parse Downloaded Data",
                 "content": [
-                    "Convert CSV files to searchable format",
-                    "• Validates CSV structure",
-                    "• Imports data into local storage",
-                    "• Creates indexes for fast searching"
+                    "Interactive import with progress visualization",
+                    "• Choose: Sample data (fast) or Full import (complete)",
+                    "• Rich UI with progress bars and error tracking", 
+                    "• Real-time speed monitoring and ETA",
+                    "• No command-line parameters to remember"
                 ]
             },
             {
@@ -911,6 +1031,9 @@ class CourtFinderMenu:
         self.console.print(f"\n[bright_white]Data Source:[/bright_white] {'Test Data' if self.using_test_data else 'Full Data'}")
         self.console.print(f"[bright_white]Version:[/bright_white] CourtFinder CLI 1.0")
         self.console.print(f"[bright_white]Repository:[/bright_white] https://github.com/courtfinder")
+        
+        self.console.print(f"\n[bright_green]💡 Tip: menu.py is the user-friendly entry point - no command-line parameters needed![/bright_green]")
+        self.console.print(f"[dim]   Just run 'python menu.py' and choose your options interactively[/dim]")
     
     def _format_size(self, size_bytes: int) -> str:
         """Format bytes as human-readable size"""
@@ -933,17 +1056,15 @@ class CourtFinderMenu:
                 self.show_banner()
                 self.show_menu()
                 
+                # Build dynamic choices based on menu items
+                menu_items = self._build_menu_items()
+                choices = []
+                for num, emoji, title, desc, color in menu_items:
+                    choices.append(f"{num}. {emoji} {title}")
+                
                 choice = questionary.select(
                     "Select an option:",
-                    choices=[
-                        "1. 🚀 Quick Start",
-                        "2. 📥 Download Court Data", 
-                        "3. 🔧 Parse Downloaded Data",
-                        "4. 🔍 Search Court Records",
-                        "5. 📊 View Statistics",
-                        "6. ❓ Help",
-                        "7. 🚪 Exit"
-                    ]
+                    choices=choices
                 ).ask()
                 
                 # Extract the number from the choice
@@ -952,7 +1073,7 @@ class CourtFinderMenu:
                 self.console.print()
                 
                 if choice == "1":
-                    self.quick_start()
+                    self.view_data_status()
                 elif choice == "2":
                     self.download_data()
                 elif choice == "3":
@@ -960,7 +1081,7 @@ class CourtFinderMenu:
                 elif choice == "4":
                     self.search_records()
                 elif choice == "5":
-                    self.view_statistics()
+                    self.quick_start()
                 elif choice == "6":
                     self.show_help()
                 elif choice == "7":
